@@ -1,0 +1,16 @@
+{
+  "name": "ai-lead-qualification-automation",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Portfolio proof of concept: n8n + LLM structured output + Supabase lead qualification.",
+  "type": "commonjs",
+  "scripts": {
+    "test": "node --test tests/validation.test.js tests/webhook.test.js tests/classification.test.js tests/business-rules.test.js tests/pipeline.test.js tests/response.test.js tests/llm.test.js tests/n8n-workflow.test.js",
+    "test:watch": "node --test --watch tests",
+    "generate:n8n": "node scripts/generate-n8n-workflow.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT"
+}

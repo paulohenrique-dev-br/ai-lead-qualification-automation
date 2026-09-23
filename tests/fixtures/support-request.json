@@ -1,0 +1,10 @@
+{
+  "submission_id": "550e8400-e29b-41d4-a716-446655440004",
+  "name": "Carlos Lima",
+  "email": "carlos.lima@example.com",
+  "company": "Acme Manufacturing",
+  "company_size": 85,
+  "budget": 0,
+  "message": "The workflow stopped sending notifications after our last update. Can someone help us fix it?",
+  "source": "website"
+}

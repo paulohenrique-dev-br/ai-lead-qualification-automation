@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+
+# Local environment
+.env
+.env.*
+!.env.example
+
+# Demo config (user-specific)
+demo/config.js
+
+# n8n local state
+n8n/.n8n/
+n8n/*.log
+
+# Test and coverage output
+coverage/
+.nyc_output/
+
+# OS / editor files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# Logs
+*.log
+
+# Pre-existing OneDrive reparse-point placeholder in this workspace
+/ai-lead-qualification-automation
