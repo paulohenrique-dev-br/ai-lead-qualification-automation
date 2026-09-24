@@ -6,8 +6,7 @@
   "type": "commonjs",
   "scripts": {
     "test": "node --test tests/validation.test.js tests/webhook.test.js tests/classification.test.js tests/business-rules.test.js tests/pipeline.test.js tests/response.test.js tests/llm.test.js tests/n8n-workflow.test.js",
-    "test:watch": "node --test --watch tests",
-    "generate:n8n": "node scripts/generate-n8n-workflow.js"
+    "test:watch": "node --test --watch tests"
   },
   "engines": {
     "node": ">=18"

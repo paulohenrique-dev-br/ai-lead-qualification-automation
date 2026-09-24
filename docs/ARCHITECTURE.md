@@ -11,12 +11,18 @@ flowchart LR
     C --> D[Idempotency Check]
     D --> E{Duplicate?}
     E -- no --> F[Prepare LLM Request]
-    F --> G[LLM HTTP Request]
+    F --> G[DeepSeek HTTP Request]
     G --> H[Structured Output Validation]
     H --> I[Business Rules]
     I --> J[PostgreSQL/Supabase]
-    J --> K[Result]
-    E -- yes --> L[Duplicate Response]
+    I --> K{qualification == qualified}
+    K -- yes --> L[HubSpot]
+    I --> M{priority == high}
+    M -- yes --> N[Gmail]
+    J --> O[Result]
+    L --> O
+    N --> O
+    E -- yes --> P[Duplicate Response]
 ```
 
 The design favors simplicity, readability, maintenance, and a commercially
@@ -42,13 +48,19 @@ the workflow.
 n8n orchestrates the pipeline:
 
 `Webhook -> Validate Input -> Check Duplicate -> Merge Check + Input ->
-Evaluate Duplicate -> Is Duplicate? -> Prepare LLM Request -> LLM HTTP Request
+Evaluate Duplicate -> Is Duplicate? -> Prepare LLM Request -> DeepSeek HTTP Request
 -> Merge LLM + Lead -> Validate Structured Output -> Apply Business Rules ->
 Persist Lead -> Merge Persist + Record -> Respond`
 
+After business rules:
+
+- `If` routes `qualification == qualified` to HubSpot
+  `Create or update a contact`.
+- `If1` routes `priority == high` to Gmail `Send a message`.
+
 ### LLM
 
-The LLM performs semantic classification only. It receives a normalized lead
+DeepSeek performs semantic classification only. It receives a normalized lead
 payload and returns a strict JSON object:
 
 ```json
@@ -65,6 +77,14 @@ payload and returns a strict JSON object:
 ```
 
 The prompt explicitly forbids chain-of-thought and markdown fences.
+
+### HubSpot CRM
+
+Qualified leads are upserted as contacts with name, email, and company.
+
+### Gmail
+
+High-priority leads trigger a synthetic high-priority notification.
 
 ### Structured Output
 
@@ -113,13 +133,11 @@ persistence is not implemented.
   from `src/` so the workflow remains self-contained and importable. The
   `src/` version is the tested source of truth.
 - Supabase REST is used for the n8n workflow because it is easy to configure
-  with environment variables and avoids embedding database credentials in the
-  workflow export. The workflow uses a server-side `service_role` key; the
-  browser demo never sees that key.
+  with n8n credentials and avoids embedding database credentials in the
+  workflow export. The workflow uses a server-side Supabase credential; the
+  browser demo never sees a database key.
 - JavaScript is limited to extraction/validation, structured-output handling,
   business rules, and response handling. HTTP calls are native n8n HTTP
   Request nodes, not `fetch()` inside Code nodes.
-- Code nodes read non-secret configuration (`LLM_MODEL`,
-  `LLM_STRUCTURED_OUTPUT_MODE`) via `process.env` with a `$env` fallback. Some
-  n8n 2 installations may require Code-node environment access to be enabled;
-  this is documented rather than working around it with hardcoded values.
+- The live workflow uses n8n credential connections for DeepSeek, Supabase,
+  HubSpot, and Gmail. The public export removes all credential bindings.

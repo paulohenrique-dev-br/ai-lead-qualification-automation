@@ -1,11 +1,12 @@
-# AI Lead Qualification Automation
+# AI Lead Qualification & CRM Automation
 
-An independent proof-of-concept portfolio case study that automates the first
-layer of B2B lead qualification with a realistic, maintainable stack:
-**n8n + LLM structured output + PostgreSQL/Supabase**.
+Live-validated portfolio project demonstrating an end-to-end B2B lead
+qualification workflow using **n8n**, **DeepSeek API**,
+**Supabase/PostgreSQL**, **HubSpot CRM**, and **Gmail**.
 
 This is a demo. It has no real client, no production credentials, and no real
-personal data. All fixtures are synthetic.
+personal data. All fixtures and live-validation submissions are synthetic. It
+does not claim commercial results.
 
 ## Problem
 
@@ -24,14 +25,19 @@ The project models a commercial lead-intake pipeline:
 flowchart LR
     A[Lead Form] --> B[Webhook]
     B --> C[Validation]
-    C --> D[n8n]
-    D --> E{Duplicate?}
-    E -- no --> F[LLM]
-    F --> G[Structured Output]
-    G --> H[Business Rules]
-    H --> I[PostgreSQL/Supabase]
-    I --> J[Routing/Result]
-    E -- yes --> K[Duplicate Response]
+    C --> D{Duplicate?}
+    D -- no --> E[DeepSeek]
+    E --> F[Structured Output]
+    F --> G[Business Rules]
+    G --> H[PostgreSQL/Supabase]
+    G --> I{qualified?}
+    I -- yes --> J[HubSpot CRM]
+    G --> K{high priority?}
+    K -- yes --> L[Gmail]
+    H --> M[Response]
+    J --> M
+    L --> M
+    D -- yes --> N[Duplicate Response]
 ```
 
 Every inbound submission is validated before it reaches the LLM. The LLM
@@ -45,11 +51,17 @@ flowchart LR
     Form[Lead Form] --> Webhook[Webhook]
     Webhook --> Validate[Input Validation]
     Validate --> Duplicate[Idempotency Check]
-    Duplicate --> LLM[LLM Classification]
+    Duplicate --> LLM[DeepSeek]
     LLM --> Schema[Structured Output Validation]
     Schema --> Rules[Business Rules]
     Rules --> DB[(PostgreSQL / Supabase)]
+    Rules --> Qualified{qualification == qualified}
+    Qualified -- yes --> CRM[HubSpot]
+    Rules --> High{priority == high}
+    High -- yes --> Mail[Gmail]
     DB --> Result[Result]
+    CRM --> Result
+    Mail --> Result
 ```
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the responsibility of
@@ -65,6 +77,8 @@ each component.
 - PostgreSQL/Supabase persistence
 - Predictable duplicate responses
 - Native n8n HTTP Request node for the LLM call
+- HubSpot contact upsert for qualified leads
+- Gmail notification for high-priority leads
 - `workflow_errors` table as a future logging scaffold
 - Synthetic test fixtures and offline unit tests
 - Minimal static HTML/JS demo form
@@ -92,11 +106,39 @@ claim selective retry.
 
 No enterprise observability infrastructure is required.
 
+## Live Validation
+
+This workflow was executed in a live n8n Cloud environment with synthetic data.
+Validated:
+
+- real webhook execution;
+- n8n Cloud execution;
+- DeepSeek API call with authentication and structured JSON;
+- Supabase persistence;
+- duplicate/idempotency handling;
+- HubSpot contact upsert;
+- Gmail high-priority alert;
+- final response.
+
+See [LIVE_VALIDATION.md](LIVE_VALIDATION.md) for the recorded scenarios.
+
+## Commercial Routing Logic
+
+After business rules:
+
+- `qualification == qualified` routes the lead to **HubSpot** using
+  `Create or update a contact`;
+- `priority == high` sends a **Gmail** notification.
+
 ## Tech Stack
 
-- [n8n](https://n8n.io/) for orchestration
+- [n8n Cloud](https://n8n.io/) for orchestration
+- DeepSeek API
 - PostgreSQL / [Supabase](https://supabase.com/) for persistence
-- OpenAI-compatible chat completions API with JSON Schema structured output
+- HubSpot CRM
+- Gmail
+- JavaScript
+- REST APIs and webhooks
 - Node.js built-in test runner for offline tests
 - Static HTML/CSS/JS for the demo form
 
@@ -122,8 +164,6 @@ frameworks, and microservices.
 │   ├── ARCHITECTURE.md
 │   ├── TESTING.md
 │   └── TROUBLESHOOTING.md
-├── scripts/
-│   └── generate-n8n-workflow.js
 ├── src/
 │   ├── business-rules.js
 │   ├── classification.js
@@ -137,6 +177,7 @@ frameworks, and microservices.
 │   ├── fixtures/
 │   └── *.test.js
 ├── POST_AUDIT_FIX_REPORT.md
+├── LIVE_VALIDATION.md
 ├── FINAL_PROJECT_STATUS.md
 └── assets/
 ```
@@ -156,32 +197,26 @@ Copy [.env.example](.env.example) to `.env` and fill in placeholders:
 cp .env.example .env
 ```
 
-Important Supabase note: the REST calls run inside n8n on the server side. Use
-the `service_role` key as a server-side environment variable. Never put the
-`service_role` key in a browser or in the exported workflow.
+Important Supabase note: the REST calls run inside n8n on the server side. The
+exported workflow has credential bindings removed; reconnect Supabase using
+the `service_role` key inside n8n. Never put the `service_role` key in a
+browser or in the exported workflow.
 
 ### 3. Import the n8n workflow
 
 1. Start n8n.
 2. Import
    [n8n/lead-qualification-workflow.json](n8n/lead-qualification-workflow.json).
-3. Set the environment variables used by the workflow:
-   - `LLM_API_BASE_URL`
-   - `LLM_API_KEY`
-   - `LLM_MODEL`
-   - `LLM_STRUCTURED_OUTPUT_MODE`
-   - `SUPABASE_URL`
-   - `SUPABASE_SERVICE_ROLE_KEY`
+3. Reconnect the required n8n credentials:
+   - Supabase (`service_role` server-side)
+   - DeepSeek HTTP Header Auth
+   - HubSpot OAuth2
+   - Gmail OAuth2
 4. Activate the workflow.
 5. Confirm the webhook path is `/webhook/lead-qualification`.
 
-The workflow uses `$env` in HTTP Request nodes and a local `getEnv()` fallback
-in Code nodes, so credentials remain outside the workflow file. Timeout values
-are configured on the native HTTP Request node. If your n8n
-version restricts environment-variable access inside Code nodes, either allow
-that access in n8n or map the Code-node values (`LLM_MODEL`,
-`LLM_STRUCTURED_OUTPUT_MODE`) with the same n8n-supported expression/credential
-mechanism. No secrets are hardcoded.
+The public export contains no credential bindings. The person importing it must
+connect their own Supabase, DeepSeek, HubSpot, and Gmail credentials in n8n.
 
 ### 4. Run the demo form
 
@@ -209,7 +244,8 @@ Expected local result: all tests pass. See
 - No Supabase `service_role` key is used in the browser; it is referenced only
   as a server-side n8n environment variable.
 - No real personal data is present; all fixtures are synthetic.
-- Secrets are loaded from environment variables or an n8n credential store.
+- Public workflow export has credential bindings removed.
+- DeepSeek, Supabase, HubSpot, and Gmail credentials are connected in n8n only.
 - `.env` and `demo/config.js` are ignored by Git.
 - The LLM prompt omits the lead's email address.
 - Supabase RLS is enabled with deny-by-default for `anon` and `authenticated`;

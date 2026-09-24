@@ -8,20 +8,21 @@
         "responseMode": "lastNode",
         "options": {}
       },
-      "id": "00000000-0000-4000-8000-000000000001",
+      "id": "48818b4a-2b57-4743-952f-5e1e6e8e4f7b",
       "name": "Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [
         0,
         0
-      ]
+      ],
+      "webhookId": "b6ea45bf-fe90-41aa-89d0-27ca2fa601c3"
     },
     {
       "parameters": {
         "jsCode": "\nfunction fail(message, details) {\n  const error = new Error(message);\n  error.name = 'ValidationError';\n  error.statusCode = 400;\n  error.details = details || [];\n  throw error;\n}\n\nfunction present(value) {\n  return typeof value === 'string' && value.trim().length > 0;\n}\n\nfunction validEmail(value) {\n  if (typeof value !== 'string') return false;\n  const email = value.trim().toLowerCase();\n  if (!email || email.length > 254) return false;\n  const at = email.lastIndexOf('@');\n  if (at <= 0 || at === email.length - 1) return false;\n  const local = email.slice(0, at);\n  const domain = email.slice(at + 1);\n  if (!local || !domain || local.length > 64 || domain.length > 253) return false;\n  const localPattern = /^[A-Z0-9.!#$%&'*+/=?^_{|}~-]+$/i;\n  const domainPattern = /^[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?(?:\\.[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?)+$/i;\n  return localPattern.test(local) && domainPattern.test(domain);\n}\n\nfunction toOptionalNumber(value) {\n  if (value === null || value === undefined || value === '') return null;\n  const number = Number(value);\n  return Number.isFinite(number) ? number : null;\n}\n\nconst envelope = $input.item.json;\nif (!envelope || typeof envelope !== 'object' || Array.isArray(envelope)) {\n  fail('Webhook output must contain a JSON body object', [{ field: 'webhook', code: 'INVALID_ENVELOPE' }]);\n}\nif (!envelope.body || typeof envelope.body !== 'object' || Array.isArray(envelope.body)) {\n  fail('Webhook payload must include a JSON body object', [{ field: 'body', code: 'MISSING_BODY' }]);\n}\n\nconst input = envelope.body;\nconst errors = [];\n\nconst submission_id = typeof input.submission_id === 'string' ? input.submission_id.trim() : '';\nif (!submission_id) errors.push({ field: 'submission_id', code: 'REQUIRED' });\n\nconst name = typeof input.name === 'string' ? input.name.trim() : '';\nif (!name) errors.push({ field: 'name', code: 'REQUIRED' });\n\nconst email = typeof input.email === 'string' ? input.email.trim() : '';\nif (!email) errors.push({ field: 'email', code: 'REQUIRED' });\nelse if (!validEmail(email)) errors.push({ field: 'email', code: 'INVALID_EMAIL' });\n\nconst message = typeof input.message === 'string' ? input.message.trim() : '';\nif (!message) errors.push({ field: 'message', code: 'REQUIRED' });\n\nconst company_size = toOptionalNumber(input.company_size);\nif (input.company_size !== undefined && input.company_size !== null && input.company_size !== '') {\n  if (company_size === null || company_size < 1) errors.push({ field: 'company_size', code: 'INVALID_NUMBER' });\n}\n\nconst budget = toOptionalNumber(input.budget);\nif (input.budget !== undefined && input.budget !== null && input.budget !== '') {\n  if (budget === null || budget < 0) errors.push({ field: 'budget', code: 'INVALID_NUMBER' });\n}\n\nif (errors.length) fail('Invalid lead payload', errors);\n\nconst validSources = ['website', 'linkedin', 'referral', 'partner', 'event', 'other', 'unknown'];\nconst rawSource = typeof input.source === 'string' ? input.source.trim().toLowerCase() : 'unknown';\nconst source = validSources.includes(rawSource) ? rawSource : 'unknown';\n\nconst item = {\n  submission_id,\n  name,\n  email: email.toLowerCase(),\n  company: typeof input.company === 'string' ? input.company.trim() : '',\n  company_size,\n  budget,\n  message,\n  source,\n};\n\nreturn [{ json: item }];\n"
       },
-      "id": "00000000-0000-4000-8000-000000000002",
+      "id": "6e83260d-069f-4879-81fe-efbdfa13e308",
       "name": "Validate Input",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -32,35 +33,22 @@
     },
     {
       "parameters": {
-        "method": "GET",
-        "url": "={{ $env.SUPABASE_URL }}/rest/v1/leads?submission_id=eq.{{ $json.submission_id }}&select=id,submission_id&limit=1",
+        "url": "=https://YOUR_PROJECT.supabase.co/rest/v1/leads?submission_id=eq.{{ $json.submission_id }}&select=id,submission_id&limit=1",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
         "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "apikey",
-              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
-            },
-            {
-              "name": "Authorization",
-              "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
-            },
-            {
-              "name": "Accept",
-              "value": "application/json"
-            }
-          ]
-        },
+        "specifyHeaders": "json",
+        "jsonHeaders": "{\n  \"Accept\": \"application/json\"\n}\n",
         "options": {
-          "timeout": 30000,
           "response": {
             "response": {
               "fullResponse": true
             }
-          }
+          },
+          "timeout": 30000
         }
       },
-      "id": "00000000-0000-4000-8000-000000000003",
+      "id": "b8969004-4a4c-4eba-9be7-0528f715f123",
       "name": "Check Duplicate",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -75,7 +63,7 @@
         "combineBy": "combineByPosition",
         "options": {}
       },
-      "id": "00000000-0000-4000-8000-000000000004",
+      "id": "0e8ce807-a69e-4c63-80cb-22e91f55516b",
       "name": "Merge Check + Input",
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3,
@@ -88,7 +76,7 @@
       "parameters": {
         "jsCode": "\nconst merged = $input.item.json;\nconst rows = Array.isArray(merged.body) ? merged.body : [];\nconst existing = rows.length && rows[0] && rows[0].id ? rows[0].id : null;\nconst lead = {\n  submission_id: merged.submission_id,\n  name: merged.name,\n  email: merged.email,\n  company: merged.company,\n  company_size: merged.company_size,\n  budget: merged.budget,\n  message: merged.message,\n  source: merged.source,\n};\n\nif (existing) {\n  return [{\n    json: {\n      duplicate: true,\n      lead_id: existing,\n      ...lead,\n    },\n  }];\n}\n\nreturn [{ json: { duplicate: false, ...lead } }];\n"
       },
-      "id": "00000000-0000-4000-8000-000000000005",
+      "id": "e0ec2aca-6f85-439e-b128-2ae51b664f31",
       "name": "Evaluate Duplicate",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -103,7 +91,8 @@
           "options": {
             "caseSensitive": true,
             "leftValue": "",
-            "typeValidation": "loose"
+            "typeValidation": "loose",
+            "version": 1
           },
           "conditions": [
             {
@@ -120,7 +109,7 @@
         },
         "options": {}
       },
-      "id": "00000000-0000-4000-8000-000000000006",
+      "id": "1a619d80-655f-4547-8a86-486f139ace6a",
       "name": "Is Duplicate?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
@@ -133,7 +122,7 @@
       "parameters": {
         "jsCode": "\nconst item = $input.item.json;\nreturn [{\n  json: {\n    status: 'duplicate',\n    submission_id: item.submission_id,\n    lead_id: item.lead_id || null,\n    duplicate: true,\n    processed_at: new Date().toISOString(),\n  },\n}];\n"
       },
-      "id": "00000000-0000-4000-8000-000000000007",
+      "id": "81864175-8898-41f8-9dfb-9a06ca3a3b1a",
       "name": "Respond Duplicate",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -144,9 +133,9 @@
     },
     {
       "parameters": {
-        "jsCode": "\nfunction getEnv(name) {\n  if (typeof process !== 'undefined' && process.env && process.env[name]) {\n    return process.env[name];\n  }\n  if (typeof $env !== 'undefined' && $env[name]) {\n    return $env[name];\n  }\n  return undefined;\n}\n\nconst ENUMS = {\n  intent: ['sales', 'support', 'partnership', 'other'],\n  service: ['ai_automation', 'api_integration', 'web_development', 'other'],\n  qualification: ['qualified', 'needs_review', 'unqualified'],\n  priority: ['high', 'medium', 'low'],\n};\n\nconst schema = {\n  type: 'object',\n  additionalProperties: false,\n  required: ['intent', 'service', 'qualification', 'priority', 'lead_score', 'human_review', 'qualification_reason', 'summary'],\n  properties: {\n    intent: { type: 'string', enum: ENUMS.intent },\n    service: { type: 'string', enum: ENUMS.service },\n    qualification: { type: 'string', enum: ENUMS.qualification },\n    priority: { type: 'string', enum: ENUMS.priority },\n    lead_score: { type: 'number', minimum: 0, maximum: 100 },\n    human_review: { type: 'boolean' },\n    qualification_reason: { type: 'string' },\n    summary: { type: 'string' },\n  },\n};\n\nfunction buildPrompt(lead) {\n  const system = [\n    'You are a lead qualification classifier for an AI automation services company.',\n    'Classify the lead using only the provided business context.',\n    'Return valid JSON matching the requested schema.',\n    'Do not include chain-of-thought, markdown fences, or extra commentary.',\n    'qualification_reason must be a concise business justification.',\n  ].join(' ');\n\n  const user = [\n    'Analyze this lead and return the classification fields:',\n    'Name: ' + (lead.name || ''),\n    'Company: ' + (lead.company || ''),\n    'Company size: ' + (lead.company_size === null || lead.company_size === undefined ? '' : lead.company_size),\n    'Budget: ' + (lead.budget === null || lead.budget === undefined ? '' : lead.budget),\n    'Message: ' + (lead.message || ''),\n    'Source: ' + (lead.source || 'unknown'),\n    'Fields: intent, service, qualification, priority, lead_score, human_review, qualification_reason, summary.',\n  ].join('\\n');\n\n  return [\n    { role: 'system', content: system },\n    { role: 'user', content: user },\n  ];\n}\n\nconst lead = $input.item.json;\nconst responseFormat = (getEnv('LLM_STRUCTURED_OUTPUT_MODE') || 'json_schema') === 'json_object'\n  ? { type: 'json_object' }\n  : { type: 'json_schema', json_schema: { name: 'lead_classification', strict: true, schema } };\n\nconst requestBody = {\n  model: getEnv('LLM_MODEL') || 'gpt-4o-mini',\n  temperature: 0,\n  messages: buildPrompt(lead),\n  response_format: responseFormat,\n};\n\nreturn [{ json: { lead, requestBody } }];\n"
+        "jsCode": "const ENUMS = {\n  intent: [\n    'sales',\n    'support',\n    'partnership',\n    'other',\n  ],\n\n  service: [\n    'ai_automation',\n    'api_integration',\n    'web_development',\n    'other',\n  ],\n\n  qualification: [\n    'qualified',\n    'needs_review',\n    'unqualified',\n  ],\n\n  priority: [\n    'high',\n    'medium',\n    'low',\n  ],\n};\n\nfunction buildPrompt(lead) {\n  const system = [\n    'You are a lead qualification classifier for an AI automation services company.',\n    'Classify the lead using only the provided business context.',\n    'Return ONLY one valid JSON object.',\n    'Do not return markdown.',\n    'Do not return code fences.',\n    'Do not include chain-of-thought or extra commentary.',\n    '',\n    'The JSON object must contain exactly these fields:',\n    '',\n    'intent: one of ' + JSON.stringify(ENUMS.intent),\n    'service: one of ' + JSON.stringify(ENUMS.service),\n    'qualification: one of ' + JSON.stringify(ENUMS.qualification),\n    'priority: one of ' + JSON.stringify(ENUMS.priority),\n    'lead_score: number from 0 to 100',\n    'human_review: boolean',\n    'qualification_reason: concise business justification',\n    'summary: concise summary of the lead',\n    '',\n    'Do not add any other fields.',\n  ].join('\\n');\n\n  const user = [\n    'Analyze the following lead.',\n    '',\n    'Name: ' + (lead.name || ''),\n    'Company: ' + (lead.company || ''),\n    'Company size: ' + (\n      lead.company_size === null ||\n      lead.company_size === undefined\n        ? ''\n        : lead.company_size\n    ),\n    'Budget: ' + (\n      lead.budget === null ||\n      lead.budget === undefined\n        ? ''\n        : lead.budget\n    ),\n    'Message: ' + (lead.message || ''),\n    'Source: ' + (lead.source || 'unknown'),\n    '',\n    'Return the classification as JSON only.',\n  ].join('\\n');\n\n  return [\n    {\n      role: 'system',\n      content: system,\n    },\n    {\n      role: 'user',\n      content: user,\n    },\n  ];\n}\n\nconst lead = $input.item.json;\n\nconst requestBody = {\n  model: 'deepseek-flash',\n\n  // Para classificação não precisamos gastar tokens com reasoning.\n  thinking: {\n    type: 'disabled',\n  },\n\n  temperature: 0,\n\n  max_tokens: 800,\n\n  messages: buildPrompt(lead),\n\n  response_format: {\n    type: 'json_object',\n  },\n};\n\nreturn [\n  {\n    json: {\n      lead,\n      requestBody,\n    },\n  },\n];"
       },
-      "id": "00000000-0000-4000-8000-000000000008",
+      "id": "870370a0-e0af-46fe-983b-515262d58c2c",
       "name": "Prepare LLM Request",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -158,14 +147,12 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.LLM_API_BASE_URL }}/chat/completions",
+        "url": "=https://api.deepseek.com/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {
-              "name": "Authorization",
-              "value": "=Bearer {{ $env.LLM_API_KEY }}"
-            },
             {
               "name": "Content-Type",
               "value": "application/json"
@@ -179,7 +166,7 @@
           "timeout": 30000
         }
       },
-      "id": "00000000-0000-4000-8000-000000000009",
+      "id": "387beca0-6f51-4b71-976e-fd639b3236cc",
       "name": "LLM HTTP Request",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -194,7 +181,7 @@
         "combineBy": "combineByPosition",
         "options": {}
       },
-      "id": "00000000-0000-4000-8000-000000000010",
+      "id": "3d6cc2ea-8690-4ea6-90d1-5d1fc3345b35",
       "name": "Merge LLM + Lead",
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3,
@@ -207,7 +194,7 @@
       "parameters": {
         "jsCode": "\nfunction assertValid(value) {\n  const enums = {\n    intent: ['sales', 'support', 'partnership', 'other'],\n    service: ['ai_automation', 'api_integration', 'web_development', 'other'],\n    qualification: ['qualified', 'needs_review', 'unqualified'],\n    priority: ['high', 'medium', 'low'],\n  };\n\n  if (!value || typeof value !== 'object' || Array.isArray(value)) {\n    throw new Error('Invalid LLM structured output');\n  }\n\n  for (const key of Object.keys(value)) {\n    if (!Object.keys(enums).concat(['lead_score', 'human_review', 'qualification_reason', 'summary']).includes(key)) {\n      throw new Error('Unexpected field: ' + key);\n    }\n  }\n\n  const output = {};\n  for (const key of Object.keys(enums)) {\n    const raw = value[key];\n    if (typeof raw !== 'string' || !enums[key].includes(raw.trim().toLowerCase())) {\n      throw new Error('Invalid enum value for ' + key);\n    }\n    output[key] = raw.trim().toLowerCase();\n  }\n\n  const score = Number(value.lead_score);\n  if (!Number.isFinite(score) || score < 0 || score > 100) {\n    throw new Error('lead_score must be a number between 0 and 100');\n  }\n  output.lead_score = score;\n\n  if (typeof value.human_review !== 'boolean') {\n    throw new Error('human_review must be a boolean');\n  }\n  output.human_review = value.human_review;\n\n  for (const field of ['qualification_reason', 'summary']) {\n    if (typeof value[field] !== 'string' || !value[field].trim()) {\n      throw new Error(field + ' must be a non-empty string');\n    }\n    output[field] = value[field].trim();\n  }\n\n  return output;\n}\n\nconst merged = $input.item.json;\nconst lead = merged.lead || {};\nconst content = merged.choices && merged.choices[0] && merged.choices[0].message\n  ? merged.choices[0].message.content\n  : undefined;\n\nlet parsed;\ntry {\n  parsed = typeof content === 'string' ? JSON.parse(content.replace(/^\\`\\`\\`(?:json)?\\s*/i, '').replace(/\\s*\\`\\`\\`$/, '').trim()) : content;\n} catch (cause) {\n  const error = new Error('LLM response content was not valid JSON');\n  error.name = 'InvalidClassificationError';\n  error.cause = cause;\n  throw error;\n}\n\nconst normalized = assertValid(parsed);\nreturn [{ json: { classification: normalized, lead } }];\n"
       },
-      "id": "00000000-0000-4000-8000-000000000011",
+      "id": "d3c77340-6a37-49da-b0db-1127daa7453e",
       "name": "Validate Structured Output",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -220,7 +207,7 @@
       "parameters": {
         "jsCode": "\nfunction clampScore(score) {\n  const number = Number(score);\n  if (!Number.isFinite(number)) return 0;\n  return Math.max(0, Math.min(100, number));\n}\n\nconst incoming = $input.item.json;\nconst original = incoming.lead || {};\nconst classification = incoming.classification || {};\n\nconst record = Object.assign({}, original, classification);\nrecord.lead_score = clampScore(classification.lead_score);\n\nif (record.qualification === 'unqualified' || record.qualification === 'needs_review') {\n  record.human_review = true;\n}\n\nif (\n  original.company_size !== null &&\n  original.company_size !== undefined &&\n  original.company_size < 10 &&\n  record.qualification === 'qualified'\n) {\n  record.qualification = 'needs_review';\n  record.human_review = true;\n  record.qualification_reason = 'Small company size; manual review recommended before committing sales effort.';\n}\n\nif (\n  original.budget !== null &&\n  original.budget !== undefined &&\n  original.budget < 1000 &&\n  record.qualification === 'qualified'\n) {\n  record.qualification = 'needs_review';\n  record.human_review = true;\n  record.qualification_reason = 'Budget below automation viability threshold; manual review recommended.';\n}\n\nif (\n  record.lead_score >= 80 &&\n  record.qualification === 'qualified' &&\n  record.intent === 'sales'\n) {\n  record.priority = 'high';\n}\n\nif (record.lead_score < 40 && record.qualification === 'qualified') {\n  record.priority = 'low';\n}\n\nreturn [{ json: record }];\n"
       },
-      "id": "00000000-0000-4000-8000-000000000012",
+      "id": "ff46c5ba-bbb8-4c0f-9fda-f6005877d6cb",
       "name": "Apply Business Rules",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -232,41 +219,25 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.SUPABASE_URL }}/rest/v1/leads?on_conflict=submission_id",
+        "url": "=https://YOUR_PROJECT.supabase.co/rest/v1/leads?on_conflict=submission_id",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
         "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "apikey",
-              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
-            },
-            {
-              "name": "Authorization",
-              "value": "=Bearer {{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            },
-            {
-              "name": "Prefer",
-              "value": "return=representation,resolution=ignore-duplicates"
-            }
-          ]
-        },
+        "specifyHeaders": "json",
+        "jsonHeaders": "{\n  \"Content-Type\": \"application/json\",\n  \"Prefer\": \"return=representation,resolution=ignore-duplicates\"\n}\n",
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ submission_id: $json.submission_id, name: $json.name, email: $json.email, company: $json.company, company_size: $json.company_size, budget: $json.budget, message: $json.message, source: $json.source, intent: $json.intent, service: $json.service, qualification: $json.qualification, priority: $json.priority, lead_score: $json.lead_score, human_review: $json.human_review, qualification_reason: $json.qualification_reason, summary: $json.summary }) }}",
         "options": {
-          "timeout": 30000,
           "response": {
             "response": {
               "fullResponse": true
             }
-          }
+          },
+          "timeout": 30000
         }
       },
-      "id": "00000000-0000-4000-8000-000000000013",
+      "id": "490d9ed2-7d55-48ba-9373-73a87ddf5318",
       "name": "Persist Lead",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -281,7 +252,7 @@
         "combineBy": "combineByPosition",
         "options": {}
       },
-      "id": "00000000-0000-4000-8000-000000000014",
+      "id": "f76b6391-3322-434e-b435-57af7e1c460a",
       "name": "Merge Persist + Record",
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3,
@@ -294,7 +265,7 @@
       "parameters": {
         "jsCode": "\nconst merged = $input.item.json;\nconst body = Array.isArray(merged.body) ? merged.body : [];\nconst persisted = body.length && body[0] && body[0].id\n  ? body[0]\n  : (merged.id ? merged : null);\n\nif (!persisted || !persisted.id) {\n  return [{\n    json: {\n      status: 'duplicate',\n      submission_id: merged.submission_id,\n      lead_id: null,\n      duplicate: true,\n      processed_at: new Date().toISOString(),\n    },\n  }];\n}\n\nreturn [{\n  json: {\n    status: 'success',\n    submission_id: merged.submission_id,\n    lead_id: persisted.id,\n    qualification: merged.qualification,\n    priority: merged.priority,\n    lead_score: merged.lead_score,\n    human_review: merged.human_review,\n    processed_at: new Date().toISOString(),\n  },\n}];\n"
       },
-      "id": "00000000-0000-4000-8000-000000000015",
+      "id": "0425a45a-cecc-497d-8a0a-58b4e6f6c64a",
       "name": "Respond",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -302,8 +273,114 @@
         3120,
         0
       ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "540b92c0-2cb3-44d2-a9d8-1e9b65d5da51",
+              "leftValue": "={{$json.qualification}}",
+              "rightValue": "qualified",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2512,
+        208
+      ],
+      "id": "15fa1b65-9bff-4646-8d40-4db6c445dde4",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "email": "={{$json.email}}",
+        "additionalFields": {
+          "companyName": "={{$json.company}}",
+          "firstName": "={{$json.name}}"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.hubspot",
+      "typeVersion": 2.2,
+      "position": [
+        2880,
+        192
+      ],
+      "id": "949d8fdb-d6a3-4460-9eb3-9b0f243ad8b6",
+      "name": "Create or update a contact"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "87761708-5a6a-4daa-995e-9fa0e97dcf94",
+              "leftValue": "={{$json.priority}}",
+              "rightValue": "high",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2512,
+        368
+      ],
+      "id": "45fa1852-9f47-4c10-ab95-738c87991ba0",
+      "name": "If1"
+    },
+    {
+      "parameters": {
+        "sendTo": "your-email@example.com",
+        "subject": "=High Priority Lead - {{$json.company}}",
+        "emailType": "text",
+        "message": "=New high-priority lead qualified by the AI workflow.\n\nName: {{$json.name}}\nEmail: {{$json.email}}\nCompany: {{$json.company}}\nBudget: {{$json.budget}}\n\nLead score: {{$json.lead_score}}\nPriority: {{$json.priority}}\nService: {{$json.service}}\nQualification: {{$json.qualification}}\n\nSummary:\n{{$json.summary}}\n\nQualification reason:\n{{$json.qualification_reason}}\n\nSubmission ID:\n{{$json.submission_id}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        2880,
+        352
+      ],
+      "id": "c87e20aa-c427-42d0-8b75-e53014ac7c6d",
+      "name": "Send a message",
+      "webhookId": "6008ba97-85f4-4a0e-99c2-27e123a66261"
     }
   ],
+  "pinData": {},
   "connections": {
     "Webhook": {
       "main": [
@@ -444,6 +521,16 @@
             "node": "Merge Persist + Record",
             "type": "main",
             "index": 1
+          },
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -469,14 +556,36 @@
           }
         ]
       ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Create or update a contact",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If1": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": false,
   "settings": {
-    "executionOrder": "v1"
+    "executionOrder": "v1",
+    "binaryMode": "separate"
   },
-  "pinData": {},
-  "versionId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "versionId": "ab2ae1ec-33d5-49e2-b16d-b28dd25240b9",
   "meta": {
     "templateCredsSetupCompleted": false
   },

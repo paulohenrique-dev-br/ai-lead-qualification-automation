@@ -1,5 +1,9 @@
 # POST-AUDIT FIX REPORT
 
+> Superseded by the live-validation results in
+> [LIVE_VALIDATION.md](LIVE_VALIDATION.md) and
+> [FINAL_PROJECT_STATUS.md](FINAL_PROJECT_STATUS.md).
+
 ## 1. SUMMARY
 
 Applied targeted corrections to the existing proof of concept without

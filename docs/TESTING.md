@@ -8,7 +8,9 @@ Run from the repository root:
 npm test
 ```
 
-The suite is offline and does not call a real LLM or Supabase.
+The suite is offline and does not call a real LLM, Supabase, HubSpot, or Gmail.
+Live E2E validation is recorded separately in
+[LIVE_VALIDATION.md](../LIVE_VALIDATION.md).
 
 Covered areas:
 
@@ -98,6 +100,19 @@ Use the demo form or a REST client.
 
    Expected: predictable duplicate response. The `leads` table still contains
    exactly one row for that `submission_id`.
+
+8. **Qualified lead**
+
+   Post a lead that the business rules classify as `qualified`.
+
+   Expected: `Create or update a contact` executes in HubSpot.
+
+9. **High-priority lead**
+
+   Post a lead that the business rules classify as `priority: high`.
+
+   Expected: `Send a message` executes in Gmail and the synthetic recipient
+   receives the alert.
 
 ### Response examples
 
